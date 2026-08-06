@@ -1,0 +1,80 @@
+# Local "production-like" stack: Postgres + backend (Gunicorn/Uvicorn) +
+# frontend (Next.js standalone) + NGINX in front of both.
+#
+# WHY NGINX SITS IN FRONT INSTEAD OF EXPOSING BACKEND/FRONTEND DIRECTLY:
+# - Single entry point (port 80) instead of remembering "frontend is
+#   :3000, API is :8000" — the browser only ever talks to one origin,
+#   which also sidesteps CORS entirely in this deployment shape (see
+#   nginx/nginx.conf's routing comments).
+# - NGINX is what would terminate TLS in a real deployment and can serve
+#   static assets efficiently, buffer slow clients, etc — jobs a Python
+#   or Node process server isn't optimized for.
+#
+# This compose file is for local development/staging parity, not a
+# multi-node production deployment (no replicas, no orchestrator-managed
+# rolling updates, no external secrets manager) — see the README's
+# "What's intentionally NOT done yet" for what a fuller production setup
+# would add on top of this.
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ecommerce_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/ecommerce_db
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      ENVIRONMENT: production
+      CORS_ORIGINS: http://localhost
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+    volumes:
+      - media_data:/app/media
+    # Run migrations, then start the app — ensures the schema is current
+    # every time a new image rolls out, without a separate manual step.
+    command: >
+      sh -c "alembic upgrade head && gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 4"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  postgres_data:
+  media_data:
