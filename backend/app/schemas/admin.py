@@ -34,3 +34,15 @@ class DashboardSummary(BaseModel):
     total_products: int
     low_stock_variant_count: int
     recent_orders: list[OrderOut]
+
+
+
+class NotificationOut(BaseModel):
+    title: str
+    message: str
+    type: str
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    notifications: list[NotificationOut]

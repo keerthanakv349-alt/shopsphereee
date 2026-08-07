@@ -154,6 +154,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.v1.admin_catalog import router as admin_catalog_router
 from app.api.v1.admin_coupons import router as admin_coupons_router
 from app.api.v1.admin_dashboard import router as admin_dashboard_router
+from app.api.v1.admin_notifications import router as admin_notifications_router
 from app.api.v1.admin_orders import router as admin_orders_router
 from app.api.v1.admin_users import router as admin_users_router
 from app.api.v1.addresses import router as addresses_router
@@ -240,6 +241,7 @@ app.include_router(admin_coupons_router)
 app.include_router(payments_router)
 app.include_router(admin_users_router)
 app.include_router(admin_dashboard_router)
+app.include_router(admin_notifications_router)
 app.include_router(reviews_router)
 app.include_router(notifications_router)
 app.include_router(ws_router)
