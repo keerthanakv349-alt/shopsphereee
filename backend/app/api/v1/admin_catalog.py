@@ -420,6 +420,37 @@ def create_category(
     return category
 
 
+@router.put("/categories/{category_id}", response_model=CategoryOut)
+def update_category(
+    category_id: uuid.UUID,
+    payload: CategoryCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(admin_only),
+):
+    category = db.get(Category, category_id)
+
+    if category is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found",
+        )
+
+    category.name = payload.name.strip()
+    category.slug = _unique_slug(db, Category, payload.name)
+    category.parent_id = payload.parent_id
+
+    db.commit()
+    db.refresh(category)
+
+    return category
+
+
+
+
+
+
+
+
 # --- Brands ---
 @router.post("/brands", response_model=BrandOut, status_code=status.HTTP_201_CREATED)
 def create_brand(payload: BrandCreate, db: Session = Depends(get_db), _: User = Depends(admin_only)):
@@ -433,6 +464,30 @@ def create_brand(payload: BrandCreate, db: Session = Depends(get_db), _: User = 
     db.refresh(brand)
     return brand
 
+
+@router.put("/brands/{brand_id}", response_model=BrandOut)
+def update_brand(
+    brand_id: uuid.UUID,
+    payload: BrandCreate,
+    db: Session = Depends(get_db),
+    _: User = Depends(admin_only),
+):
+    brand = db.get(Brand, brand_id)
+
+    if brand is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Brand not found",
+        )
+
+    brand.name = payload.name.strip()
+    brand.slug = _unique_slug(db, Brand, payload.name)
+    brand.logo_url = payload.logo_url
+
+    db.commit()
+    db.refresh(brand)
+
+    return brand
 
 # --- Products ---
 def _load_product_or_404(db: Session, product_id: uuid.UUID) -> Product:
